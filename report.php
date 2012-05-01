@@ -1,12 +1,12 @@
 <?php
 $ts = time();
+// At 00:00 we sould parse yesterday records to be 100% stored, < 14 check for this because my ron runs every 15 minutes
 if ( date('G') == 0 && date('i') < 14 )
 {
     $ts = strtotime('-1 day');
 }
 
 $date = strftime('%Y-%m-%d', $ts);
-echo $date;
 
 $my = mysql_connect('localhost', 'root', '');
 mysql_select_db('system', $my);
@@ -23,7 +23,7 @@ if ( $list )
         if ( $info )
         {
             list($in, $out) = explode(':', $info);
-            echo sprintf('%s in: %d out: %d', $vhost, $in, $out) . PHP_EOL;
+//            echo sprintf('%s in: %d out: %d', $vhost, $in, $out) . PHP_EOL;
 
             $sql = sprintf('INSERT INTO apachebw (date, virtualhost, incoming, outgoing) VALUES ("%1$s", "%2$s", %3$d, %4$d) ON DUPLICATE KEY UPDATE incoming = %3$d, outgoing = %4$d', mysql_real_escape_string($date), mysql_real_escape_string($vhost), $in, $out);
             mysql_query($sql);

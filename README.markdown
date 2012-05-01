@@ -23,6 +23,6 @@ A colon separated list of tracked virtualhosts reported by apache possible outpu
 
 Virtualhost bandwith usage with a colon separated string first parameter incoming traffic sendond one is the outgoing traffic.
 
-Used library
+**Used library**
 
 memcachelib more info at http://people.freebsd.org/~seanc/libmemcache/README

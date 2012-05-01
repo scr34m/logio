@@ -1,6 +1,6 @@
 CC=cc
 LDFLAGS= -lmemcache -L/usr/local/lib
-CFLAGS=-c -g -Wall -I/usr/local/include
+CFLAGS=-c -Wall -I/usr/local/include
 
 all: logio
 
