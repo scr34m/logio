@@ -1,16 +1,28 @@
 logio
 =====
 
-Small Apache mod_logio parser for store realtime values in Memcache for logging. Another process need to read these informations, clear based on TTL (1 day).
+Apache mod_logio parser for realtime values. Infomrations stored in Memcache for gathering and processing. So a background CRON process need to read these informations.
 
-Apache combined log format is "%v %I %O" which means virtualhost name, incoming and outgoing communication size in bytes.
+Memcache expire used to clear records older than 1 day. Each memcache record marked with the current date.
 
-Memcache structures are:
+Apache combined log
+-------------------
 
-logio_<date>
-points to a daily record with a list of logged virtual hosts name list
+Example configuration for format is `LogFormat "%v %I %O" combined_io` variables are: virtualhost name, incoming and outgoing communication size in bytes.
 
-logio_<data>_<vhost>
-daily usage by a virtual host format: in:out
+Tell apache to pipe log directily to the application `CustomLog "| /path/to/logio" combined_io` only one instance will be running.
 
-memcachelib used for communication see http://people.freebsd.org/~seanc/libmemcache/README
+Memcache structures
+-------------------
+
+`logio_<date>`
+
+A colon separated list of tracked virtualhosts reported by apache possible output is example.com:example.org:example.net
+
+`logio_<data>_<vhost>`
+
+Virtualhost bandwith usage with a colon separated string first parameter incoming traffic sendond one is the outgoing traffic.
+
+Used library
+
+memcachelib more info at http://people.freebsd.org/~seanc/libmemcache/README
