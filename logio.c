@@ -9,6 +9,8 @@
 struct memcache *mc;
 char *mc_instance = "127.0.0.1:11211";
 char prefix[] = "logio_";
+
+char time_buff[11] = "";
 char date[11] = "";
 
 #define EXPIRE 86400
@@ -148,25 +150,125 @@ int update_daily_value(char *name, unsigned long long in, unsigned long long out
 	return 0;
 }
 
+void update_date_buff()
+{
+	time_t rawtime;
+	struct tm *timeinfo;
+
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+
+	strftime(time_buff, 11, "%Y-%m-%d", timeinfo);
+}
+
+void set_date()
+{
+	strncpy(&date, &time_buff, sizeof(time_buff));
+}
+
+int vhost_bootstrap_record(char* name)
+{
+	char *key;
+	if (asprintf(&key, "%s%s_%s", prefix, date, name) == -1)
+	{
+		return 1;
+	}
+
+	char *ret = mc_aget(mc, key, strlen(key));
+	if (ret == NULL)
+	{
+		free(key);
+		return 0;
+	}
+
+	char *p;
+	char *out = strstr(ret, ":");
+	if (out == NULL)
+	{
+		free(key);
+		return 0;
+	}
+	
+	// replace colon to \0
+	p = ret + (out - ret);
+	*p = '\0';
+
+	// skip colon
+	out++;
+
+	vhost *vhost_actual = vhost_exist(name);
+	if (vhost_actual == NULL)
+	{
+		vhost_actual = create_vhost();
+
+		if (vhost_first == NULL)
+		{
+			vhost_first = vhost_last = vhost_actual;
+		} else {
+			vhost_last->next = vhost_actual;
+			vhost_last = vhost_actual;
+		}
+
+		asprintf(&vhost_actual->name, "%s", name);
+	}
+
+	vhost_actual->in = atoll(ret);
+	vhost_actual->out = atoll(out);
+
+	free(ret);
+	free(key);
+	return 0;
+}
+
+int vhost_bootstrap()
+{
+	update_date_buff();
+	set_date();
+
+	char *key;
+	if (asprintf(&key, "%s%s", prefix, date) == -1)
+	{
+		return 1;
+	}
+
+	char *ret = mc_aget(mc, key, strlen(key));
+	if (ret == NULL)
+	{
+		free(key);
+		return 0;
+	}
+	printf("%s\n", ret);
+
+	char *p;
+	p = strtok(ret,":");
+	while (p != NULL)
+	{
+		vhost_bootstrap_record(p);
+		p = strtok(NULL, ":");
+	}
+
+	vhost *iter;
+	for (iter = vhost_first; NULL != iter; iter = iter->next)
+	{
+		printf("%s %lld %lld\n", iter->name, iter->in, iter->out);
+	}
+
+	free(ret);
+	free(key);
+	return 0;
+}
+
 void line_parse(char *line)
 {
 	char *name;
 	char *in;
 	char *out;
 
-	time_t rawtime;
-	struct tm *timeinfo;
-	char time_buff[11];
-
-	time(&rawtime);
-	timeinfo = localtime(&rawtime);
-
-	strftime(time_buff, 11, "%Y-%m-%d", timeinfo);
+	update_date_buff();
 	if (strcmp(&date, &time_buff) != 0)
 	{
 		vhost_destroy();
-		strncpy(&date, &time_buff, sizeof(time_buff));
-
+		set_date();
 		purge_daily_vhost_list();
 	}
 
@@ -211,42 +313,51 @@ int main(int argc, char *argv[])
 {
 	int read_buf_size = 100;
 	char read_buf[read_buf_size];
-
+	FILE *is;
 	int line_size_def = 100;
 	int line_size = line_size_def;
 	char *line = malloc(line_size);
 	*line = '\0';
 
+	int clear = 0;
 	char c;
-	while ((c = getopt (argc, argv, "m:")) != -1)
+	while ((c = getopt(argc, argv, "cm:")) != -1)
 	{
 		switch (c)
 		{
+			case 'c':
+				clear = 1;
+				break;
 			case 'm':
 				mc_instance = optarg;
 				break;
-			case '?':
-				if (optopt == 'c')
-					fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-				else if (isprint (optopt))
-					fprintf(stderr, "Unknown option `-%c'.\n", optopt);
-				else
-					fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
-				return 1;
 			default:
 				abort();
+				break;
 		}
 	}
 
-	FILE *is = fopen("/dev/stdin", "r");
-	if (is == NULL)
+	if (clear == 0)
 	{
-		fprintf(stderr, "Unable to STDIN\n");
-		return 0;
+		is = fopen("/dev/stdin", "r");
+		if (is == NULL)
+		{
+			fprintf(stderr, "Unable to open STDIN\n");
+			return 0;
+		}
 	}
 
-	// XXX: setup from memcache to local memory db?
 	setupmemcache();
+
+	if (clear == 1)
+	{
+		update_date_buff();
+		set_date();
+		purge_daily_vhost_list();
+		exit(0);
+	}
+
+	vhost_bootstrap();
 
 	while (1)
 	{

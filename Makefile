@@ -19,3 +19,8 @@ test:
 testbig:
 	cat ./test_big.txt | ./logio
 	echo "get logio_2012-05-03_example.com" | nc 127.0.0.1 11211
+
+testboots:
+	cat ./test_bootstraptxt.txt | ./logio
+	echo "get logio_2012-05-03" | nc 127.0.0.1 11211
+	
