@@ -203,7 +203,7 @@ void line_parse(char *line)
 
 	vhost_actual->in += atoll(in);
 	vhost_actual->out += atoll(out);
-	printf("%lld\n", vhost_actual->out);
+
 	update_daily_value(vhost_actual->name, vhost_actual->in, vhost_actual->out);
 }
 
