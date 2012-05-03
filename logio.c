@@ -62,6 +62,10 @@ void vhost_destroy()
 	{
 		fprintf(stderr, "%p %p\n", iter, iter->next);
 		tmp = iter->next;
+		if (iter->name != NULL)
+		{
+			free(iter->name);
+		}
 		free(iter);
 		iter = tmp;
 	}
@@ -192,7 +196,7 @@ void line_parse(char *line)
 			vhost_last = vhost_actual;
 		}
 
-		asprintf(&vhost_actual->name, "%s", line);
+		asprintf(&vhost_actual->name, "%s", line); // XXX: really allocated?
 
 		update_daily_vhost_list(vhost_actual->name);
 	}
