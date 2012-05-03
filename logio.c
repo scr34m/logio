@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <err.h>
-#include <memcache.h>
 #include <time.h>
+#include <ctype.h>
+#include <memcache.h>
 
 struct memcache *mc;
 char *mc_instance = "127.0.0.1:11211";
@@ -15,8 +16,8 @@ char date[11] = "";
 typedef struct s_vhost
 {
 	char *name;
-	long int in;
-	long int out;
+	unsigned long long in;
+	unsigned long long out;
 	struct s_vhost *next;
 } vhost;
 vhost *vhost_first = NULL;
@@ -59,62 +60,88 @@ void vhost_destroy()
 	vhost *tmp;
 	while (iter != NULL)
 	{
-		printf("%p %p\n", iter, iter->next);
+		fprintf(stderr, "%p %p\n", iter, iter->next);
 		tmp = iter->next;
 		free(iter);
 		iter = tmp;
 	}
+
+	vhost_first = NULL;
+	vhost_last = NULL;
 }
 
-void update_daily_vhost_list(char *name)
+int update_daily_vhost_list(char *name)
 {
-	int key_size = strlen(prefix) + strlen(date) + 1;
-	char *key = malloc(key_size);
-	snprintf(key, key_size, "%s%s", prefix, date);
+	char *key;
+	if (asprintf(&key, "%s%s", prefix, date) == -1)
+	{
+		return 1;
+	}
 
 	char *buf;
-	int buf_size = strlen(name) + 1 + 1;
-
 	char *ret = mc_aget(mc, key, strlen(key));
 	if (ret != NULL)
 	{
-		buf_size = buf_size + strlen(ret) + 1;
-		buf = malloc(buf_size);
-		snprintf(buf, buf_size, "%s:%s", ret, name);
-		free(ret);
+		asprintf(&buf, "%s:%s", ret, name);
 	} else {
-		buf = malloc(buf_size);
-		snprintf(buf, buf_size, "%s", name);
+		asprintf(&buf, "%s", name);
 	}
 
-	// TODO: check success
+	if (ret != NULL)
+	{
+		free(ret);
+	}
+
+	if (buf == NULL)
+	{
+		free(key);
+		return 1;
+	}
+
 	mc_set(mc, key, strlen(key), buf, strlen(buf), EXPIRE, 0); // XXX: expire 1 day
 
 	free(buf);
 	free(key);
+
+	return 0;
 }
 
-void purge_daily_vhost_list()
+int purge_daily_vhost_list()
 {
-	int key_size = strlen(prefix) + strlen(date) + 1;
-	char *key = malloc(key_size);
-	snprintf(key, key_size, "%s%s", prefix, date);
+	char *key;
+	if (asprintf(&key, "%s%s", prefix, date) == -1)
+	{
+		return 1;
+	}
 
 	mc_delete(mc, key, strlen(key), 0);
+
+	free(key);
+
+	return 0;
 }
 
-void update_daily_value(char *name, long int in, long int out)
+int update_daily_value(char *name, unsigned long long in, unsigned long long out)
 {
-	int i = strlen(prefix) + strlen(date) + 1 + strlen(name) + 1;
-	char *key = malloc(i);
-	snprintf(key, i, "%s%s_%s", prefix, date, name);
+	char *key;
+	if (asprintf(&key, "%s%s_%s", prefix, date, name) == -1)
+	{
+		return 1;
+	}
 
-	char buf[256];
-	sprintf(buf, "%d:%d", in, out);
-
+	char *buf;
+	if (asprintf(&buf, "%lld:%lld", in, out) == -1)
+	{
+		free(key);
+		return 1;
+	}
+	
 	mc_set(mc, key, strlen(key), buf, strlen(buf), EXPIRE, 0); // XXX: expire 1 day
 
 	free(key);
+	free(buf);
+
+	return 0;
 }
 
 void line_parse(char *line)
@@ -165,14 +192,14 @@ void line_parse(char *line)
 			vhost_last = vhost_actual;
 		}
 
-		vhost_actual->name = malloc(strlen(line) + 1);
-		snprintf(vhost_actual->name, strlen(line) + 1, "%s", line);
+		asprintf(&vhost_actual->name, "%s", line);
 
 		update_daily_vhost_list(vhost_actual->name);
 	}
 
-	vhost_actual->in += atoi(in);
-	vhost_actual->out += atoi(out);
+	vhost_actual->in += atoll(in);
+	vhost_actual->out += atoll(out);
+	printf("%lld\n", vhost_actual->out);
 	update_daily_value(vhost_actual->name, vhost_actual->in, vhost_actual->out);
 }
 
@@ -210,7 +237,7 @@ int main(int argc, char *argv[])
 	FILE *is = fopen("/dev/stdin", "r");
 	if (is == NULL)
 	{
-		printf("Unable to STDIN\n");
+		fprintf(stderr, "Unable to STDIN\n");
 		return 0;
 	}
 
@@ -221,7 +248,7 @@ int main(int argc, char *argv[])
 	{
 		if (line == NULL)
 		{
-			printf("Memory allocation error!");
+			fprintf(stderr, "Memory allocation error!");
 			return 1;
 		}
 
