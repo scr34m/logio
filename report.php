@@ -25,7 +25,7 @@ if ( $list )
             list($in, $out) = explode(':', $info);
 //            echo sprintf('%s in: %d out: %d', $vhost, $in, $out) . PHP_EOL;
 
-            $sql = sprintf('INSERT INTO apachebw (date, virtualhost, incoming, outgoing) VALUES ("%1$s", "%2$s", %3$s, %4$s) ON DUPLICATE KEY UPDATE incoming = %3$s, outgoing = %4$s', mysql_real_escape_string($date), mysql_real_escape_string($vhost), mysql_real_escape_string($in), mysql_real_escape_string($out));
+            $sql = sprintf('INSERT INTO apachebw (date, virtualhost, incoming, outgoing) VALUES ("%1$s", "%2$s", %3$d, %4$d) ON DUPLICATE KEY UPDATE incoming = %3$d, outgoing = %4$d', mysql_real_escape_string($date), mysql_real_escape_string($vhost), $in, $out);
             mysql_query($sql);
         }
     }
