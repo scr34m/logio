@@ -62,7 +62,6 @@ void vhost_destroy()
 	vhost *tmp;
 	while (iter != NULL)
 	{
-		fprintf(stderr, "%p %p\n", iter, iter->next);
 		tmp = iter->next;
 		if (iter->name != NULL)
 		{
@@ -237,7 +236,6 @@ int vhost_bootstrap()
 		free(key);
 		return 0;
 	}
-	printf("%s\n", ret);
 
 	char *p;
 	p = strtok(ret,":");
@@ -245,12 +243,6 @@ int vhost_bootstrap()
 	{
 		vhost_bootstrap_record(p);
 		p = strtok(NULL, ":");
-	}
-
-	vhost *iter;
-	for (iter = vhost_first; NULL != iter; iter = iter->next)
-	{
-		printf("%s %lld %lld\n", iter->name, iter->in, iter->out);
 	}
 
 	free(ret);
